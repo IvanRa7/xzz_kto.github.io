@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Каталог товаров</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --tg-theme-bg-color: #ffffff;
+            --tg-theme-text-color: #000000;
+            --tg-theme-hint-color: #707579;
+            --tg-theme-link-color: #3390ec;
+            --tg-theme-button-color: #3390ec;
+            --tg-theme-button-text-color: #ffffff;
+            --tg-theme-secondary-bg-color: #f4f4f5;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--tg-theme-bg-color);
+            color: var(--tg-theme-text-color);
+        }
+        
+        .container {
+            max-width: 100%;
+            padding: 10px;
+        }
+        
+        .header {
+            padding: 15px 0;
+            text-align: center;
+            border-bottom: 1px solid #eaeaea;
+            margin-bottom: 15px;
+        }
+        
+        .product-card {
+            border: 1px solid #eaeaea;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background-color: var(--tg-theme-secondary-bg-color);
+        }
+        
+        .product-title {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        
+        .product-price {
+            font-weight: 700;
+            font-size: 18px;
+            color: var(--tg-theme-link-color);
+            margin: 10px 0;
+        }
+        
+        .product-meta {
+            font-size: 14px;
+            color: var(--tg-theme-hint-color);
+            margin-bottom: 10px;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-right: 5px;
+        }
+        
+        .badge-new {
+            background-color: #4CAF50;
+            color: white;
+        }
+        
+        .badge-sale {
+            background-color: #F44336;
+            color: white;
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .button {
+            flex: 1;
+            padding: 10px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .button-primary {
+            background-color: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-text-color);
+        }
+        
+        .button-secondary {
+            background-color: var(--tg-theme-secondary-bg-color);
+            color: var(--tg-theme-text-color);
+        }
+        
+        .favorite-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--tg-theme-secondary-bg-color);
+            border: none;
+            cursor: pointer;
+        }
+        
+        .search-container {
+            padding: 10px;
+            position: sticky;
+            top: 0;
+            background-color: var(--tg-theme-bg-color);
+            z-index: 100;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 10px 15px;
+            border-radius: 10px;
+            border: 1px solid #eaeaea;
+            background-color: var(--tg-theme-secondary-bg-color);
+            color: var(--tg-theme-text-color);
+            font-size: 16px;
+        }
+        
+        .filter-container {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .filter-chip {
+            padding: 8px 12px;
+            border-radius: 20px;
+            background-color: var(--tg-theme-secondary-bg-color);
+            color: var(--tg-theme-text-color);
+            font-size: 14px;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        
+        .filter-chip.active {
+            background-color: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-text-color);
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 50px 20px;
+            color: var(--tg-theme-hint-color);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Каталог товаров</h2>
+        </div>
+        
+        <div class="search-container">
+            <input type="text" class="search-input" placeholder="Поиск товаров..." id="searchInput">
+        </div>
+        
+        <div class="filter-container" id="categoryFilters"></div>
+        
+        <div id="productsList"></div>
+        
+        <div class="empty-state" id="emptyState" style="display: none;">
+            Товары не найдены. Попробуйте изменить фильтры.
+        </div>
+        
+        <div class="loading" id="loading">
+            Загрузка...
+        </div>
+    </div>
+
+    <script>
+        // Инициализация Telegram WebApp
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        
+        // Пример данных о товарах (в реальном приложении можно загружать с сервера)
+        const products = [
+            {
+                id: 1,
+                name: "Смартфон Xiaomi Redmi Note 12",
+                category: "Смартфоны",
+                subcategory: "Xiaomi",
+                price: 19990,
+                oldPrice: 21990,
+                wbLink: "https://www.wildberries.ru/catalog/123/detail.aspx",
+                ozonLink: "https://www.ozon.ru/product/123",
+                isNew: true,
+                isSale: true,
+                stock: 15,
+                image: "https://via.placeholder.com/150"
+            },
+            {
+                id: 2,
+                name: "Наушники Apple AirPods Pro 2",
+                category: "Наушники",
+                subcategory: "Apple",
+                price: 24990,
+                oldPrice: 27990,
+                wbLink: "https://www.wildberries.ru/catalog/456/detail.aspx",
+                ozonLink: "https://www.ozon.ru/product/456",
+                isNew: true,
+                isSale: false,
+                stock: 8,
+                image: "https://via.placeholder.com/150"
+            },
+            {
+                id: 3,
+                name: "Футболка мужская хлопок",
+                category: "Одежда",
+                subcategory: "Футболки",
+                price: 1499,
+                oldPrice: 1999,
+                wbLink: "https://www.wildberries.ru/catalog/789/detail.aspx",
+                ozonLink: "https://www.ozon.ru/product/789",
+                isNew: false,
+                isSale: true,
+                stock: 42,
+                image: "https://via.placeholder.com/150"
+            },
+            {
+                id: 4,
+                name: "Умные часы Amazfit GTS 4",
+                category: "Гаджеты",
+                subcategory: "Умные часы",
+                price: 15990,
+                oldPrice: 17990,
+                wbLink: "https://www.wildberries.ru/catalog/101/detail.aspx",
+                ozonLink: "https://www.ozon.ru/product/101",
+                isNew: false,
+                isSale: true,
+                stock: 12,
+                image: "https://via.placeholder.com/150"
+            },
+            {
+                id: 5,
+                name: "Ноутбук ASUS VivoBook 15",
+                category: "Ноутбуки",
+                subcategory: "ASUS",
+                price: 54990,
+                oldPrice: 59990,
+                wbLink: "https://www.wildberries.ru/catalog/202/detail.aspx",
+                ozonLink: "https://www.ozon.ru/product/202",
+                isNew: true,
+                isSale: false,
+                stock: 5,
+                image: "https://via.placeholder.com/150"
+            }
+        ];
+        
+        // Избранное (можно сохранять в localStorage)
+        let favorites = JSON.parse(localStorage.getItem('favorites')) || [];
+        
+        // Текущие фильтры
+        let currentFilters = {
+            category: null,
+            subcategory: null,
+            isNew: false,
+            isSale: false,
+            searchQuery: ''
+        };
+        
+        // Инициализация приложения
+        document.addEventListener('DOMContentLoaded', function() {
+            renderProducts();
+            initFilters();
+            setupSearch();
+            
+            // Скрываем индикатор загрузки
+            document.getElementById('loading').style.display = 'none';
+        });
+        
+        // Рендер списка товаров
+        function renderProducts() {
+            const productsList = document.getElementById('productsList');
+            const emptyState = document.getElementById('emptyState');
+            
+            // Фильтрация товаров
+            const filteredProducts = filterProducts();
+            
+            if (filteredProducts.length === 0) {
+                productsList.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+            
+            emptyState.style.display = 'none';
+            productsList.innerHTML = '';
+            
+            filteredProducts.forEach(product => {
+                const isFavorite = favorites.includes(product.id);
+                
+                const productCard = document.createElement('div');
+                productCard.className = 'product-card';
+                productCard.innerHTML = `
+                    <div class="product-title">${product.name}</div>
+                    <div class="product-meta">
+                        ${product.category} • ${product.subcategory}
+                        ${product.isNew ? '<span class="badge badge-new">Новинка</span>' : ''}
+                        ${product.isSale ? '<span class="badge badge-sale">Акция</span>' : ''}
+                        <span>Остаток: ${product.stock} шт.</span>
+                    </div>
+                    <div class="product-price">
+                        ${product.price.toLocaleString('ru-RU')} ₽
+                        ${product.oldPrice ? `<span style="text-decoration: line-through; color: var(--tg-theme-hint-color); font-size: 14px; margin-left: 5px;">${product.oldPrice.toLocaleString('ru-RU')} ₽</span>` : ''}
+                    </div>
+                    <div class="buttons">
+                        <button class="button button-primary" onclick="openLink('${product.wbLink}')">
+                            Wildberries
+                        </button>
+                        <button class="button button-primary" onclick="openLink('${product.ozonLink}')">
+                            Ozon
+                        </button>
+                    </div>
+                `;
+                
+                productsList.appendChild(productCard);
+            });
+        }
+        
+        // Фильтрация товаров
+        function filterProducts() {
+            return products.filter(product => {
+                // Поиск по названию
+                if (currentFilters.searchQuery && 
+                    !product.name.toLowerCase().includes(currentFilters.searchQuery.toLowerCase())) {
+                    return false;
+                }
+                
+                // Фильтр по категории
+                if (currentFilters.category && product.category !== currentFilters.category) {
+                    return false;
+                }
+                
+                // Фильтр по подкатегории
+                if (currentFilters.subcategory && product.subcategory !== currentFilters.subcategory) {
+                    return false;
+                }
+                
+                // Фильтр по новинкам
+                if (currentFilters.isNew && !product.isNew) {
+                    return false;
+                }
+                
+                // Фильтр по акциям
+                if (currentFilters.isSale && !product.isSale) {
+                    return false;
+                }
+                
+                return true;
+            });
+        }
+        
+        // Инициализация фильтров
+        function initFilters() {
+            const categoryFilters = document.getElementById('categoryFilters');
+            
+            // Получаем все категории
+            const categories = [...new Set(products.map(p => p.category))];
+            
+            // Добавляем кнопку "Все"
+            const allButton = document.createElement('div');
+            allButton.className = `filter-chip ${!currentFilters.category ? 'active' : ''}`;
+            allButton.textContent = 'Все';
+            allButton.onclick = () => {
+                currentFilters.category = null;
+                currentFilters.subcategory = null;
+                updateFilters();
+            };
+            categoryFilters.appendChild(allButton);
+            
+            // Добавляем кнопки категорий
+            categories.forEach(category => {
+                const button = document.createElement('div');
+                button.className = `filter-chip ${currentFilters.category === category ? 'active' : ''}`;
+                button.textContent = category;
+                button.onclick = () => {
+                    currentFilters.category = category;
+                    currentFilters.subcategory = null;
+                    updateFilters();
+                };
+                categoryFilters.appendChild(button);
+            });
+            
+            // Кнопки новинок и акций
+            const newButton = document.createElement('div');
+            newButton.className = `filter-chip ${currentFilters.isNew ? 'active' : ''}`;
+            newButton.textContent = 'Новинки';
+            newButton.onclick = () => {
+                currentFilters.isNew = !currentFilters.isNew;
+                updateFilters();
+            };
+            categoryFilters.appendChild(newButton);
+            
+            const saleButton = document.createElement('div');
+            saleButton.className = `filter-chip ${currentFilters.isSale ? 'active' : ''}`;
+            saleButton.textContent = 'Акции';
+            saleButton.onclick = () => {
+                currentFilters.isSale = !currentFilters.isSale;
+                updateFilters();
+            };
+            categoryFilters.appendChild(saleButton);
+        }
+        
+        // Обновление фильтров
+        function updateFilters() {
+            // Перерисовываем фильтры
+            document.getElementById('categoryFilters').innerHTML = '';
+            initFilters();
+            
+            // Перерисовываем товары
+            renderProducts();
+        }
+        
+        // Настройка поиска
+        function setupSearch() {
+            const searchInput = document.getElementById('searchInput');
+            let searchTimeout;
+            
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    currentFilters.searchQuery = this.value;
+                    renderProducts();
+                }, 300);
+            });
+        }
+        
+        // Открытие ссылки на маркетплейс
+        function openLink(url) {
+            tg.openLink(url);
+        }
+        
+        // Добавление/удаление из избранного
+        function toggleFavorite(productId) {
+            const index = favorites.indexOf(productId);
+            if (index === -1) {
+                favorites.push(productId);
+            } else {
+                favorites.splice(index, 1);
+            }
+            
+            localStorage.setItem('favorites', JSON.stringify(favorites));
+            renderProducts();
+        }
+        
+        // Отправка данных в Telegram
+        function sendDataToTelegram(data) {
+            tg.sendData(JSON.stringify(data));
+        }
+    </script>
+</body>
+</html>
